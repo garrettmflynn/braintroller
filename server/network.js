@@ -17,13 +17,11 @@ for (const name of Object.keys(nets)) {
         }
     }
   }
-  console.log('Network Structure (no IPv4 or internal):', results)
   const res = (results["en0"] ?? results["Wi-Fi"])?.[0]
   if (res) localIP = res
   else console.error('Could not get local IP address')
 
-  console.log('Results', results)
-  console.log('Local IP', localIP)
+  console.log('IP Detected', localIP)
 
 } catch (e) {
     console.log('Error', e)
