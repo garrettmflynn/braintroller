@@ -8,5 +8,5 @@ const wss = new WebSocketServer({ port: 8765 });
 
 wss.on('connection', function connection(ws) {
   ws.on('error', console.error);
-  ws.on('message', robot.keyTap);
+  ws.on('message', (message) => robot.keyTap(message));
 });
