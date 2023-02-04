@@ -60,9 +60,10 @@
 
 
             // Allow for adding new IP addresses
-            input.onchange = () =>{
+            add.onclick = () =>{
                 const option = addOption(input.value)
                 option.selected = true
+                selectedComputer = input.value
                 ips.add(input.value)
                 const array = Array.from(ips)
                 localStorage.setItem('braintroller-ips', JSON.stringify(array))
@@ -71,6 +72,7 @@
             const client = new braintroller.Client()
 
             client.onopen = () => {
+                connect.blur()
                 connect.innerText = 'Disconnect'
                 
                 braintroller.allKeys.forEach(k => {

@@ -56,7 +56,11 @@ export class Client {
                 if (this.onopen) this.onopen.call(this.ws, ev)
             })
 
-            ws.addEventListener('close', () => this.status = 'disconnected')
+            ws.addEventListener('close', (ev) => {
+                console.warn(`Disconnected from ${usUrl}`)
+                this.status = 'disconnected'
+                if (this.onclose) this.onclose.call(this.ws, ev)
+            })
 
             // Close the connection if it takes too long to connect
             setTimeout(() => {
