@@ -4,7 +4,8 @@ import { getOS } from './os'
 type StatusType = 'connecting' | 'connected' | 'disconnecting' | 'disconnected'
   
 const os = getOS()
-let validKeys = keys.supported[os] ? [...keys.allKeys, ...(keys.only[os] ?? [])].filter(key => !keys.exclude[os]?.includes(key)) : []
+const otherOSs = Object.entries(keys.supported).filter(([key, value]) => key !== os && value).map(([key]) => key)
+let validKeys = keys.supported[os] ? [...keys.allKeys, ...(keys.only[os] ?? [])].filter(key => !keys.exclude[os]?.includes(key) && !otherOSs.find(os => keys.only[os]?.includes(key))) : []
 
 export class Client {
 
@@ -13,27 +14,21 @@ export class Client {
     validMessages: string[] = validKeys
     #queue: string[] = []
 
-    #onmessage: WebSocket['onmessage']
-    #onopen: WebSocket['onopen']
-
     host: string
     port: number | string
 
-    get onmessage() {
-        return this.#onmessage
-    }
+    // WebSocket events
+    #onmessage: WebSocket['onmessage']
+    get onmessage() { return this.#onmessage }
+    set onmessage(f: WebSocket['onmessage']) {  this.#onmessage = f }
 
-    set onmessage(f: WebSocket['onmessage']) {
-        this.#onmessage = f
-    }
+    #onopen: WebSocket['onopen']
+    get onopen() { return this.#onopen }
+    set onopen(f: WebSocket['onopen']) {  this.#onopen = f }
 
-    get onopen() {
-        return this.#onopen
-    }
-
-    set onopen(f: WebSocket['onopen']) {
-        this.#onopen = f
-    }
+    #onclose: WebSocket['onclose']
+    get onclose() { return this.#onclose }
+    set onclose(f: WebSocket['onclose']) { this.#onclose = f }
 
     constructor(host: string = 'localhost', port: number = 8765) {
         this.host = host
@@ -50,11 +45,7 @@ export class Client {
             const ws = new WebSocket(usUrl);
             this.status = 'connecting'
 
-            ws.onmessage = (ev) => {
-                if (this.onmessage) this.onmessage.call(this.ws, ev)
-            }
-
-            // ws.onerror = (ev) => console.error(ev)
+            ws.onmessage = (ev) => (this.onmessage) ? this.onmessage.call(this.ws, ev) : undefined
             
             ws.addEventListener('open', (ev) => {
                 this.ws = ws
@@ -65,10 +56,9 @@ export class Client {
                 if (this.onopen) this.onopen.call(this.ws, ev)
             })
 
-            ws.addEventListener('close', (ev) => {
-                this.status = 'disconnected'
-            })
+            ws.addEventListener('close', () => this.status = 'disconnected')
 
+            // Close the connection if it takes too long to connect
             setTimeout(() => {
                 if (this.status === 'connecting') ws.close()
             }, 2000)
@@ -85,12 +75,23 @@ export class Client {
     send = (message) => {
         if (this.status === 'connected') {
             if (!validKeys.includes(message)) {
-                console.warn(`${message} is not a valid key for ${os}`)
-                return
+
+                // Basic key transformations
+                if (message === ' ') message = 'space'
+                if (message === 'Enter') message = 'enter'
+                if (message === 'ArrowUp') message = 'up'
+                if (message === 'ArrowDown') message = 'down'
+                if (message === 'ArrowLeft') message = 'left'
+                if (message === 'ArrowRight') message = 'right'
+
+                if (!validKeys.includes(message)) {
+                    console.warn(`${message} is not a valid key for ${os}`)
+                    return
+                }
             }
 
             if (typeof message === 'object') message = JSON.stringify(message)
             this.ws.send(message)
-        } else this.#queue.push(message)
+        } else if (this.status === 'connecting') this.#queue.push(message)
     }
 }

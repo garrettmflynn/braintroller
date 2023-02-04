@@ -8,8 +8,12 @@
 
         <h2>Choose Backend</h2>
         <select></select>
-        <input placeholder="Add new IP address"></input><button id="add">Add</button>
+        <input id="newIp" placeholder="Add new IP address"></input><button id="add">Add</button>
 
+        <div id ="mirrorOption">
+            <input type="checkbox" id="mirror" checked><label for="mirror">Mirror keyboard</label>
+        </div>
+        
         <h2>Commands</h2>
         <div id="commands"></div>
 
@@ -17,16 +21,23 @@
             import * as braintroller from './dist/browser.esm.js'
 
 
+            const localIp = 'localhost'
+
+            const add = document.querySelector('#add')
+            const input = document.querySelector('#newIp')
+            const select = document.querySelector('select')
+            const connect = document.querySelector('#connect')
+            const commands = document.querySelector('#commands')
+            const mirror = document.querySelector('#mirror')
+            const mirrorOption = document.querySelector('#mirrorOption')
+
             const getIps = () => {
                 const item = localStorage.getItem('braintroller-ips')
-                return new Set(item ? JSON.parse(item) : ['localhost'])
+                return new Set(item ? JSON.parse(item) : [localIp])
             }
 
             const ips = getIps()
 
-            const add = document.querySelector('#add')
-            const input = document.querySelector('input')
-            const select = document.querySelector('select')
             let selectedComputer = null
 
             const addOption = (ip) => {
@@ -39,7 +50,16 @@
 
             ips.forEach(addOption)
 
-            select.onchange = () => selectedComputer = select.value
+            // Track selected computer
+            select.onchange = () => {
+                selectedComputer = select.value
+                if (selectedComputer === localIp) mirrorOption.style.display = 'none'
+                else mirrorOption.style.display = 'block'
+            }
+            select.onchange()
+
+
+            // Allow for adding new IP addresses
             input.onchange = () =>{
                 const option = addOption(input.value)
                 option.selected = true
@@ -48,8 +68,6 @@
                 localStorage.setItem('braintroller-ips', JSON.stringify(array))
             }
 
-            const connect = document.querySelector('#connect')
-            const commands = document.querySelector('#commands')
             const client = new braintroller.Client()
 
             client.onopen = () => {
@@ -67,16 +85,23 @@
             }
 
             client.onclose = () => {
-
+                Array.from(commands.children).forEach(c => c.remove())
+                connect.innerText = 'Connect'
             }
 
             connect.onclick = () => {
                 if (client.status === 'disconnected') client.connect(selectedComputer ?? select.value)
-                else {
-                    Array.from(commands.children).forEach(c => c.remove())
-                    client.disconnect()
-                    connect.innerText = 'Connect'
-                }
+                else client.disconnect()
+            }
+
+            
+
+            window.onkeypress = (ev) => {
+                if (
+                    mirror.checked // Mirror is enabled
+                    && client.status === 'connected' // Connection is established
+                    && client.host !== localIp // Not running locally (infinite loop)
+                ) client.send(ev.key)
             }
             
         </script>
