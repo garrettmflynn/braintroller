@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+    </head>
+    <body>  
+        <button id="connect">Connect</button>
+
+        <h2>Choose Backend</h2>
+        <select></select>
+        <input placeholder="Add new IP address"></input><button id="add">Add</button>
+
+        <h2>Commands</h2>
+        <div id="commands"></div>
+
+        <script type="module">
+            import * as braintroller from './dist/browser.esm.js'
+
+
+            const getIps = () => {
+                const item = localStorage.getItem('braintroller-ips')
+                return new Set(item ? JSON.parse(item) : ['localhost'])
+            }
+
+            const ips = getIps()
+
+            const add = document.querySelector('#add')
+            const input = document.querySelector('input')
+            const select = document.querySelector('select')
+            let selectedComputer = null
+
+            const addOption = (ip) => {
+                let option = document.createElement('option');
+                option.value = ip;
+                option.innerHTML = ip;
+                select.appendChild(option);
+                return option
+            }
+
+            ips.forEach(addOption)
+
+            select.onchange = () => selectedComputer = select.value
+            input.onchange = () =>{
+                const option = addOption(input.value)
+                option.selected = true
+                ips.add(input.value)
+                const array = Array.from(ips)
+                localStorage.setItem('braintroller-ips', JSON.stringify(array))
+            }
+
+            const connect = document.querySelector('#connect')
+            const commands = document.querySelector('#commands')
+            const client = new braintroller.Client()
+
+            client.onopen = () => {
+                connect.innerText = 'Disconnect'
+                
+                braintroller.allKeys.forEach(k => {
+                    const button = document.createElement('button')
+                    button.innerText = k
+
+                    if (client.validMessages.includes(k)) button.addEventListener('click', () => client.send(k)) 
+                    else button.disabled = true
+
+                   commands.appendChild(button)
+                })
+            }
+
+            client.onclose = () => {
+
+            }
+
+            connect.onclick = () => {
+                if (client.status === 'disconnected') client.connect(selectedComputer ?? select.value)
+                else {
+                    Array.from(commands.children).forEach(c => c.remove())
+                    client.disconnect()
+                    connect.innerText = 'Connect'
+                }
+            }
+            
+        </script>
+    </body>
+</html>
+        

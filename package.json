@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "robotjs": "^0.6.0",
+    "ws": "^8.12.0"
+  }
+}
