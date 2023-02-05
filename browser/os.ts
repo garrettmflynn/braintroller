@@ -1,10 +1,23 @@
-export function getOS() {
+// Handles requests from the browser and inputs from Node.js
+export function getOS(platform = (window.navigator as any)?.userAgentData?.platform || window.navigator.platform) {
     var userAgent = window.navigator.userAgent,
-        platform = (window.navigator as any)?.userAgentData?.platform || window.navigator.platform,
-        macosPlatforms = ['Macintosh', 'MacIntel', 'MacPPC', 'Mac68K', "darwin", "macOS"],
-        windowsPlatforms = ['Win32', 'Win64', 'Windows', 'WinCE'],
+        macosPlatforms = [
+            'Macintosh', 
+            'MacIntel', 
+            'MacPPC', 
+            'Mac68K', 
+            "macOS",
+            "darwin", // Node.js
+        ],
+        windowsPlatforms = [
+            'Win32', 
+            'Win64', 
+            'Windows', 
+            'WinCE', 
+            "win32" // Node.js
+        ],
         iosPlatforms = ['iPhone', 'iPad', 'iPod'],
-        os = platform;
+        os = platform; // Will pass lowercase linux and android
   
     if (macosPlatforms.indexOf(platform) !== -1) return 'mac';
     else if (iosPlatforms.indexOf(platform) !== -1) return 'ios';
@@ -14,3 +27,5 @@ export function getOS() {
   
     return os;
   }
+
+  

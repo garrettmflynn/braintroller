@@ -78,8 +78,7 @@
                 braintroller.allKeys.forEach(k => {
                     const button = document.createElement('button')
                     button.innerText = k
-
-                    if (client.validMessages.includes(k)) button.addEventListener('click', () => client.send(k)) 
+                    if (client.validMessages.includes(k)) button.addEventListener('click', () => client.send('key', k)) 
                     else button.disabled = true
 
                    commands.appendChild(button)
@@ -103,7 +102,7 @@
                     mirror.checked // Mirror is enabled
                     && client.status === 'connected' // Connection is established
                     && client.host !== localIp // Not running locally (infinite loop)
-                ) client.send(ev.key)
+                ) client.send('key', ev.key)
             }
             
         </script>

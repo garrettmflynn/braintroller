@@ -3,16 +3,17 @@ import { getOS } from './os'
 
 type StatusType = 'connecting' | 'connected' | 'disconnecting' | 'disconnected'
   
-const os = getOS()
-const otherOSs = Object.entries(keys.supported).filter(([key, value]) => key !== os && value).map(([key]) => key)
-let validKeys = keys.supported[os] ? [...keys.allKeys, ...(keys.only[os] ?? [])].filter(key => !keys.exclude[os]?.includes(key) && !otherOSs.find(os => keys.only[os]?.includes(key))) : []
-
 export class Client {
 
     status: StatusType = 'disconnected'
     ws: WebSocket
-    validMessages: string[] = validKeys
-    #queue: string[] = []
+    os: string
+    validMessages: string[]
+    #queue: {command: string, payload: any}[] = []
+    #toResolve: {[key: string]: {
+        resolve: (value: any) => void
+        reject: (reason: any) => void
+    }} = {}
 
     host: string
     port: number | string
@@ -45,14 +46,32 @@ export class Client {
             const ws = new WebSocket(usUrl);
             this.status = 'connecting'
 
-            ws.onmessage = (ev) => (this.onmessage) ? this.onmessage.call(this.ws, ev) : undefined
+            ws.onmessage = (ev) => {
+                const { id, payload, error } = JSON.parse(ev.data)
+
+                const toResolve = this.#toResolve[id]
+                if (toResolve) {
+                    if (error) toResolve.reject(error)
+                    else toResolve.resolve(payload)
+                    delete this.#toResolve[id]
+                }
+
+                if (this.onmessage) this.onmessage.call(this.ws, ev)
+            }
             
-            ws.addEventListener('open', (ev) => {
+            ws.addEventListener('open', async (ev) => { 
                 this.ws = ws
                 console.warn(`Connected to ${usUrl}`)
                 this.status = 'connected'
-                this.#queue.forEach(message => this.send(message))
+                this.#queue.forEach(o => this.send(o.command, o.payload))
                 this.#queue = []
+
+                const nodePlatform = await this.send('platform')
+                const os = this.os = getOS(nodePlatform)
+                const otherOSs = Object.entries(keys.supported).filter(([key, value]) => key !== os && value).map(([key]) => key)
+                this.validMessages = keys.supported[os] ? [...keys.allKeys, ...(keys.only[os] ?? [])].filter(key => !keys.exclude[os]?.includes(key) && !otherOSs.find(os => keys.only[os]?.includes(key))) : []
+
+
                 if (this.onopen) this.onopen.call(this.ws, ev)
             })
 
@@ -76,26 +95,36 @@ export class Client {
         }
     }
 
-    send = (message) => {
+    send = (command, payload?) => {
         if (this.status === 'connected') {
-            if (!validKeys.includes(message)) {
 
-                // Basic key transformations
-                if (message === ' ') message = 'space'
-                if (message === 'Enter') message = 'enter'
-                if (message === 'ArrowUp') message = 'up'
-                if (message === 'ArrowDown') message = 'down'
-                if (message === 'ArrowLeft') message = 'left'
-                if (message === 'ArrowRight') message = 'right'
+            // Key Preprocessing
+            if (command === 'key') {
+                if (!this.validMessages.includes(payload)) {
 
-                if (!validKeys.includes(message)) {
-                    console.warn(`${message} is not a valid key for ${os}`)
-                    return
+                    // Basic key transformations
+                    if (payload === ' ') payload = 'space'
+                    if (payload === 'Enter') payload = 'enter'
+                    if (payload === 'ArrowUp') payload = 'up'
+                    if (payload === 'ArrowDown') payload = 'down'
+                    if (payload === 'ArrowLeft') payload = 'left'
+                    if (payload === 'ArrowRight') payload = 'right'
+
+                    if (!this.validMessages.includes(payload)) {
+                        console.warn(`${payload} is not a valid key for ${this.os}`)
+                        return
+                    }
                 }
             }
 
-            if (typeof message === 'object') message = JSON.stringify(message)
-            this.ws.send(message)
-        } else if (this.status === 'connecting') this.#queue.push(message)
+            const id = Math.random().toString(36).substr(2, 9)
+            const message = { command, id }
+            if (payload) message['payload'] = payload
+
+            this.ws.send(JSON.stringify(message))
+            return new Promise((resolve, reject) => this.#toResolve[id] = {resolve, reject})
+        } 
+        
+        else if (this.status === 'connecting') this.#queue.push({ command, payload })
     }
 }
